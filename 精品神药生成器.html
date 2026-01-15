@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>精品神药生成器</title>
+    <style>
+        body {
+            font-family: 'SimSun', serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'SimSun', serif;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        .size-value {
+            text-align: center;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            font-family: inherit;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .button-group {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        #preview {
+            margin-top: 30px;
+            text-align: center;
+            padding: 20px;
+            background: #0c8e40;
+            border-radius: 4px;
+            min-height: 200px;
+        }
+        
+        canvas {
+            border: 1px solid #ddd;
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>精品神药生成器</h1>
+        
+        <div class="form-group">
+            <label>输入4个文字（左上、右上、左下、右下）:</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label for="text1" style="font-size: 12px;">左上（黑字）:</label>
+                    <input type="text" id="text1" value="精" placeholder="第1个字" maxlength="2">
+                </div>
+                <div>
+                    <label for="text2" style="font-size: 12px;">右上（白字）:</label>
+                    <input type="text" id="text2" value="神" placeholder="第2个字" maxlength="2">
+                </div>
+                <div>
+                    <label for="text3" style="font-size: 12px;">左下（白字）:</label>
+                    <input type="text" id="text3" value="药" placeholder="第3个字" maxlength="2">
+                </div>
+                <div>
+                    <label for="text4" style="font-size: 12px;">右下（黑字）:</label>
+                    <input type="text" id="text4" value="品" placeholder="第4个字" maxlength="2">
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="size">字体大小:<span class="size-value" id="sizeValue">250px</span></label>
+            <input type="range" id="size" min="50" max="400" value="250" step="10">
+        </div>
+        
+        <div class="form-group">
+            <label for="padding">边距:<span class="size-value" id="paddingValue">30px</span></label>
+            <input type="range" id="padding" min="10" max="100" value="30" step="5">
+        </div>
+        
+        <div class="form-group">
+            <label for="border">框的粗细:<span class="size-value" id="borderValue">5px</span></label>
+            <input type="range" id="border" min="0" max="50" value="5" step="1">
+        </div>
+        
+        <div class="form-group">
+            <label for="offset">文字垂直微调:<span class="size-value" id="offsetValue">-10px</span></label>
+            <input type="range" id="offset" min="-30" max="30" value="-10" step="1">
+        </div>
+        
+        <div class="form-group">
+            <label for="bgMode">预览背景:</label>
+            <select id="bgMode">
+                <option value="checkerboard">棋盘纹理</option>
+                <option value="white">白色</option>
+                <option value="black">黑色</option>
+                <option value="green" selected>#0c8e40 绿色</option>
+                <option value="transparent">透明</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="dpi">输出清晰度:</label>
+            <select id="dpi">
+                <option value="1">标准 (1x)</option>
+                <option value="2" selected>高清 (2x)</option>
+                <option value="3">超高清 (3x)</option>
+                <option value="4">极清 (4x)</option>
+            </select>
+        </div>
+        
+        <div class="button-group">
+            <button onclick="generateImage()">生成预览</button>
+            <button onclick="downloadPNG()">下载PNG</button>
+            <button onclick="downloadSVG()">下载SVG</button>
+        </div>
+        
+        <div id="preview">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const preview = document.getElementById('preview');
+        
+        // 预览背景选择
+        document.getElementById('bgMode').addEventListener('change', function() {
+            const mode = this.value;
+            switch(mode) {
+                case 'checkerboard':
+                    preview.style.background = `
+                        linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+                        linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+                        linear-gradient(-45deg, transparent 75%, #e0e0e0 75%)`;
+                    preview.style.backgroundSize = '20px 20px';
+                    preview.style.backgroundPosition = '0 0, 0 10px, 10px -10px, -10px 0px';
+                    preview.style.backgroundColor = '#ffffff';
+                    break;
+                case 'white':
+                    preview.style.background = 'white';
+                    break;
+                case 'black':
+                    preview.style.background = 'black';
+                    break;
+                case 'green':
+                    preview.style.background = '#0c8e40';
+                    break;
+                case 'transparent':
+                    preview.style.background = 'transparent';
+                    break;
+            }
+        });
+        
+        // 监听输入框变化
+        document.getElementById('text1').addEventListener('input', generateImage);
+        document.getElementById('text2').addEventListener('input', generateImage);
+        document.getElementById('text3').addEventListener('input', generateImage);
+        document.getElementById('text4').addEventListener('input', generateImage);
+        
+        // 更新尺寸显示
+        document.getElementById('size').addEventListener('input', function() {
+            document.getElementById('sizeValue').textContent = this.value + 'px';
+            generateImage();
+        });
+        
+        document.getElementById('padding').addEventListener('input', function() {
+            document.getElementById('paddingValue').textContent = this.value + 'px';
+            generateImage();
+        });
+        
+        document.getElementById('border').addEventListener('input', function() {
+            document.getElementById('borderValue').textContent = this.value + 'px';
+            generateImage();
+        });
+        
+        document.getElementById('offset').addEventListener('input', function() {
+            const value = this.value;
+            document.getElementById('offsetValue').textContent = (value >= 0 ? '+' : '') + value + 'px';
+            generateImage();
+        });
+        
+        function generateImage() {
+            const texts = [
+                document.getElementById('text1').value || '精',
+                document.getElementById('text2').value || '神',
+                document.getElementById('text3').value || '药',
+                document.getElementById('text4').value || '品'
+            ];
+            
+            const fontSize = parseInt(document.getElementById('size').value);
+            const padding = parseInt(document.getElementById('padding').value);
+            const offsetY = parseInt(document.getElementById('offset').value);
+            
+            // 设置字体
+            ctx.font = `${fontSize}px SimSun, serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 测量文本宽度
+            let maxWidth = 0;
+            texts.forEach(text => {
+                const metrics = ctx.measureText(text);
+                maxWidth = Math.max(maxWidth, metrics.width);
+            });
+            
+            const textWidth = Math.ceil(maxWidth) + padding * 2;
+            const textHeight = fontSize + padding * 2;
+            
+            // 2x2网格，每个格子包含文字
+            const cellWidth = textWidth;
+            const cellHeight = textHeight;
+            const canvasWidth = cellWidth * 2;
+            const canvasHeight = cellHeight * 2;
+            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            // 重新设置字体
+            ctx.font = `${fontSize}px SimSun, serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 绘制2x2格子，交错的背景和字体颜色
+            const colors = [
+                { bg: 'white', text: 'transparent' },  // 左上
+                { bg: 'transparent', text: 'white' },  // 右上
+                { bg: 'transparent', text: 'white' },  // 左下
+                { bg: 'white', text: 'transparent' }   // 右下
+            ];
+            
+            const positions = [
+                { x: 0, y: 0 },                    // 左上框的左上角
+                { x: cellWidth, y: 0 },            // 右上框的左上角
+                { x: 0, y: cellHeight },           // 左下框的左上角
+                { x: cellWidth, y: cellHeight }    // 右下框的左上角
+            ];
+            
+            for (let i = 0; i < 4; i++) {
+                const boxX = positions[i].x;
+                const boxY = positions[i].y;
+                const centerX = boxX + cellWidth / 2;   // 框的中心X坐标
+                const centerY = boxY + cellHeight / 2 + offsetY;  // 框的中心Y坐标 + 垂直偏移
+                const color = colors[i];
+                
+                // 绘制背景
+                ctx.fillStyle = color.bg;
+                ctx.fillRect(boxX, boxY, cellWidth, cellHeight);
+                
+                if (color.bg === 'white') {
+                    // 白色背景：掏空文字
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.fillStyle = 'rgba(0,0,0,1)';
+                    ctx.fillText(texts[i], centerX, centerY);
+                    ctx.globalCompositeOperation = 'source-over';
+                } else {
+                    // 透明背景：白色文字
+                    ctx.fillStyle = 'white';
+                    ctx.fillText(texts[i], centerX, centerY);
+                }
+            }
+            
+            // 绘制外框
+            const borderWidth = parseInt(document.getElementById('border').value);
+            if (borderWidth > 0) {
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = borderWidth;
+                ctx.strokeRect(borderWidth / 2, borderWidth / 2, canvasWidth - borderWidth, canvasHeight - borderWidth);
+            }
+        }
+        
+        function downloadPNG() {
+            const texts = [
+                document.getElementById('text1').value || '精',
+                document.getElementById('text2').value || '神',
+                document.getElementById('text3').value || '药',
+                document.getElementById('text4').value || '品'
+            ];
+            const filename = texts.join('') + '.png';
+            
+            // 获取清晰度倍数
+            const dpr = parseInt(document.getElementById('dpi').value);
+            
+            // 创建高分辨率canvas
+            const exportCanvas = document.createElement('canvas');
+            const exportCtx = exportCanvas.getContext('2d');
+            
+            exportCanvas.width = canvas.width * dpr;
+            exportCanvas.height = canvas.height * dpr;
+            
+            // 缩放上下文以保持坐标系一致
+            exportCtx.scale(dpr, dpr);
+            
+            // 复制canvas内容到导出canvas
+            exportCtx.drawImage(canvas, 0, 0);
+            
+            exportCanvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+        
+        function downloadSVG() {
+            const texts = [
+                document.getElementById('text1').value || '精',
+                document.getElementById('text2').value || '神',
+                document.getElementById('text3').value || '药',
+                document.getElementById('text4').value || '品'
+            ];
+            const filename = texts.join('') + '.svg';
+            const fontSize = parseInt(document.getElementById('size').value);
+            const padding = parseInt(document.getElementById('padding').value);
+            const borderWidth = parseInt(document.getElementById('border').value);
+            const offsetY = parseInt(document.getElementById('offset').value);
+            
+            // 测量文本宽度
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.font = `${fontSize}px SimSun, serif`;
+            let maxWidth = 0;
+            texts.forEach(text => {
+                const metrics = tempCtx.measureText(text);
+                maxWidth = Math.max(maxWidth, metrics.width);
+            });
+            
+            const textWidth = Math.ceil(maxWidth) + padding * 2;
+            const textHeight = fontSize + padding * 2;
+            
+            const cellWidth = textWidth;
+            const cellHeight = textHeight;
+            const canvasWidth = cellWidth * 2;
+            const canvasHeight = cellHeight * 2;
+            
+            const colors = [
+                { bg: 'white', text: 'transparent' },  // 左上
+                { bg: 'transparent', text: 'transparent' },  // 右上
+                { bg: 'transparent', text: 'transparent' },  // 左下
+                { bg: 'white', text: 'transparent' }   // 右下
+            ];
+            
+            const positions = [
+                { x: 0, y: 0 },        // 左上
+                { x: cellWidth, y: 0 }, // 右上
+                { x: 0, y: cellHeight }, // 左下
+                { x: cellWidth, y: cellHeight } // 右下
+            ];
+            
+            let rects = '';
+            let maskContent = '<rect width="' + canvasWidth + '" height="' + canvasHeight + '" fill="white"/>';
+            let whiteTexts = '';
+            
+            for (let i = 0; i < 4; i++) {
+                const boxX = positions[i].x;
+                const boxY = positions[i].y;
+                const centerX = boxX + cellWidth / 2;   // 框的中心X坐标
+                const centerY = boxY + cellHeight / 2 + offsetY;  // 框的中心Y坐标 + 垂直偏移
+                const color = colors[i];
+                
+                // 添加背景矩形
+                if (color.bg === 'white') {
+                    rects += `<rect x="${boxX}" y="${boxY}" width="${cellWidth}" height="${cellHeight}" fill="white"/>\n`;
+                    // 白色背景上的文字用于mask的掏空操作
+                    maskContent += `<text x="${centerX}" y="${centerY}" font-family="SimSun, serif" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle" fill="black">${escapeXml(texts[i])}</text>\n`;
+                } else {
+                    // 透明背景上的文字是白色
+                    whiteTexts += `<text x="${centerX}" y="${centerY}" font-family="SimSun, serif" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle" fill="white">${escapeXml(texts[i])}</text>\n`;
+                }
+            }
+            
+            const svg = `<svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <mask id="textMask">
+                        ${maskContent}
+                    </mask>
+                </defs>
+                ${rects}
+                <rect width="${canvasWidth}" height="${canvasHeight}" fill="white" mask="url(#textMask)"/>
+                ${whiteTexts}
+                ${borderWidth > 0 ? `<rect x="${borderWidth/2}" y="${borderWidth/2}" width="${canvasWidth - borderWidth}" height="${canvasHeight - borderWidth}" fill="none" stroke="white" stroke-width="${borderWidth}"/>` : ''}
+            </svg>`;
+            
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function escapeXml(unsafe) {
+            return unsafe.replace(/[<>&'"]/g, function (c) {
+                switch (c) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '\'': return '&apos;';
+                    case '"': return '&quot;';
+                }
+            });
+        }
+        
+        // 初始化
+        generateImage();
+    </script>
+</body>
+</html>
