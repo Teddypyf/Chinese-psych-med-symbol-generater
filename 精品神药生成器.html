@@ -342,11 +342,87 @@
             exportCanvas.width = canvas.width * dpr;
             exportCanvas.height = canvas.height * dpr;
             
-            // 缩放上下文以保持坐标系一致
-            exportCtx.scale(dpr, dpr);
+            // 不使用scale，而是直接在高分辨率上重新绘制
+            const fontSize = parseInt(document.getElementById('size').value) * dpr;
+            const padding = parseInt(document.getElementById('padding').value) * dpr;
+            const offsetY = parseInt(document.getElementById('offset').value) * dpr;
+            const borderWidth = parseInt(document.getElementById('border').value) * dpr;
             
-            // 复制canvas内容到导出canvas
-            exportCtx.drawImage(canvas, 0, 0);
+            // 设置字体
+            exportCtx.font = `${fontSize}px SimSun, serif`;
+            exportCtx.textAlign = 'center';
+            exportCtx.textBaseline = 'middle';
+            
+            // 测量文本宽度
+            let maxWidth = 0;
+            texts.forEach(text => {
+                const metrics = exportCtx.measureText(text);
+                maxWidth = Math.max(maxWidth, metrics.width);
+            });
+            
+            const textWidth = Math.ceil(maxWidth) + padding * 2;
+            const textHeight = fontSize + padding * 2;
+            
+            // 2x2网格，每个格子包含文字
+            const cellWidth = textWidth;
+            const cellHeight = textHeight;
+            const canvasWidth = cellWidth * 2;
+            const canvasHeight = cellHeight * 2;
+            
+            // 确保canvas尺寸匹配
+            exportCanvas.width = canvasWidth;
+            exportCanvas.height = canvasHeight;
+            
+            // 重新设置字体
+            exportCtx.font = `${fontSize}px SimSun, serif`;
+            exportCtx.textAlign = 'center';
+            exportCtx.textBaseline = 'middle';
+            
+            // 绘制2x2格子，交错的背景和字体颜色
+            const colors = [
+                { bg: 'white', text: 'transparent' },  // 左上
+                { bg: 'transparent', text: 'white' },  // 右上
+                { bg: 'transparent', text: 'white' },  // 左下
+                { bg: 'white', text: 'transparent' }   // 右下
+            ];
+            
+            const positions = [
+                { x: 0, y: 0 },                    // 左上框的左上角
+                { x: cellWidth, y: 0 },            // 右上框的左上角
+                { x: 0, y: cellHeight },           // 左下框的左上角
+                { x: cellWidth, y: cellHeight }    // 右下框的左上角
+            ];
+            
+            for (let i = 0; i < 4; i++) {
+                const boxX = positions[i].x;
+                const boxY = positions[i].y;
+                const centerX = boxX + cellWidth / 2;   // 框的中心X坐标
+                const centerY = boxY + cellHeight / 2 + offsetY;  // 框的中心Y坐标 + 垂直偏移
+                const color = colors[i];
+                
+                // 绘制背景
+                exportCtx.fillStyle = color.bg;
+                exportCtx.fillRect(boxX, boxY, cellWidth, cellHeight);
+                
+                if (color.bg === 'white') {
+                    // 白色背景：掏空文字
+                    exportCtx.globalCompositeOperation = 'destination-out';
+                    exportCtx.fillStyle = 'rgba(0,0,0,1)';
+                    exportCtx.fillText(texts[i], centerX, centerY);
+                    exportCtx.globalCompositeOperation = 'source-over';
+                } else {
+                    // 透明背景：白色文字
+                    exportCtx.fillStyle = 'white';
+                    exportCtx.fillText(texts[i], centerX, centerY);
+                }
+            }
+            
+            // 绘制外框
+            if (borderWidth > 0) {
+                exportCtx.strokeStyle = 'white';
+                exportCtx.lineWidth = borderWidth;
+                exportCtx.strokeRect(borderWidth / 2, borderWidth / 2, canvasWidth - borderWidth, canvasHeight - borderWidth);
+            }
             
             exportCanvas.toBlob(blob => {
                 const url = URL.createObjectURL(blob);
